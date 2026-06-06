@@ -161,49 +161,25 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Update the Launch Template with the new image URI.
-      # The ASG Instance Refresh will start rolling EC2 instances using this version.
-      - name: Update Launch Template with new image
-        env:
-          ECR_URI: ${{ secrets.ECR_REPOSITORY_URI }}
-          ASG_NAME: ${{ secrets.ASG_NAME }}
+      # No launch-template edit is needed: the instance UserData reads the
+      # image tag from SSM (/fashionwholesale/CURRENT_IMAGE_TAG) at boot, and
+      # the docker job above already set that parameter to this commit's SHA.
+      # A rolling instance refresh relaunches the instances, which then pull
+      # the new image. This avoids needing ec2:RunInstances / launch-template
+      # mutation permissions on the CI role.
+      - name: Confirm target image tag
         run: |
-          # Get current launch template ID from the ASG
-          LT_ID=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names "$ASG_NAME" \
-            --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateId" \
-            --output text)
-
-          echo "Launch Template ID: $LT_ID"
-
-          # Get current user data from latest version and update image reference
-          CURRENT_UD=$(aws ec2 describe-launch-template-versions \
-            --launch-template-id "$LT_ID" \
-            --versions '$Latest' \
-            --query "LaunchTemplateVersions[0].LaunchTemplateData.UserData" \
-            --output text | base64 -d)
-
-          NEW_UD=$(echo "$CURRENT_UD" | sed \
-            "s|IMAGE_TAG=.*|IMAGE_TAG=\"${{ env.IMAGE_TAG }}\"|g")
-
-          # Create new LT version with updated user data
-          NEW_VERSION=$(aws ec2 create-launch-template-version \
-            --launch-template-id "$LT_ID" \
-            --source-version '$Latest' \
-            --launch-template-data "{\"UserData\":\"$(echo "$NEW_UD" | base64 -w 0)\"}" \
-            --query "LaunchTemplateVersion.VersionNumber" \
-            --output text)
-
-          echo "New Launch Template version: $NEW_VERSION"
-
-          # Set ASG to use latest LT version
-          aws autoscaling update-auto-scaling-group \
-            --auto-scaling-group-name "$ASG_NAME" \
-            --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest"
+          TAG=$(aws ssm get-parameter \
+            --name "/fashionwholesale/CURRENT_IMAGE_TAG" \
+            --query "Parameter.Value" --output text)
+          echo "Instances will pull image tag: $TAG"
+          [ "$TAG" = "${{ env.IMAGE_TAG }}" ] || echo "Warning: SSM tag ($TAG) != build SHA (${{ env.IMAGE_TAG }})"
 
       # Trigger a rolling Instance Refresh.
       # ASG replaces instances one by one, keeping min healthy % at 50%.
       # New instances run health check via ALB before old ones are terminated.
+      # SkipMatching is false so every instance is replaced even though the
+      # launch template itself is unchanged (the new image comes via SSM).
       - name: Start Instance Refresh (rolling deploy)
         env:
           ASG_NAME: ${{ secrets.ASG_NAME }}
@@ -216,7 +192,7 @@ jobs:
               "InstanceWarmup": 120,
               "CheckpointPercentages": [50, 100],
               "CheckpointDelay": 60,
-              "SkipMatching": true
+              "SkipMatching": false
             }' \
             --query "InstanceRefreshId" \
             --output text)

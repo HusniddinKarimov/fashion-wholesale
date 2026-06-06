@@ -398,38 +398,24 @@ Resources:
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
                 Resource: "*"
+              # Rolling deploys are driven purely by an instance refresh.
+              # New instances read the image tag from SSM at boot, so the CI
+              # role needs no launch-template / RunInstances permissions.
               - Effect: Allow
                 Action:
                   - autoscaling:StartInstanceRefresh
-                  - autoscaling:DescribeInstanceRefreshes
-                  - autoscaling:UpdateAutoScalingGroup
                 Resource: !Sub "arn:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/${EnvironmentName}-asg"
               # Describe* and CloudFormation read actions don't support
               # resource-level permissions, so they must target "*".
               - Effect: Allow
                 Action:
-                  - autoscaling:DescribeAutoScalingGroups
                   - autoscaling:DescribeInstanceRefreshes
-                  - ec2:CreateLaunchTemplateVersion
-                  - ec2:DescribeLaunchTemplates
-                  - ec2:DescribeLaunchTemplateVersions
                   - cloudformation:DescribeStacks
                 Resource: "*"
-              # Pointing an ASG at a launch template requires ec2:RunInstances
-              # (AWS validates the caller can "use" the template).
-              - Effect: Allow
-                Action:
-                  - ec2:RunInstances
-                Resource: "*"
-              # Launch template carries an instance profile, so the caller
-              # must be able to pass the EC2 instance role.
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource: !GetAtt EC2InstanceRole.Arn
               - Effect: Allow
                 Action:
                   - ssm:PutParameter
+                  - ssm:GetParameter
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${EnvironmentName}/*"
 
   # ════════════════════════════════════════════════════════════════════════════
