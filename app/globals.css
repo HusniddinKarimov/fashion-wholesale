@@ -3,25 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg: #fafaf9;
+  --color-text: #1a1a2e;
+  --color-gold: #c9a84c;
+  --color-blue: #2d4a7a;
+  --color-border: #e5e3df;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-cormorant), Georgia, serif;
+  }
 }
 
 @layer utilities {
+  .font-display {
+    font-family: var(--font-cormorant), Georgia, serif;
+  }
+  .font-sans {
+    font-family: var(--font-geist), system-ui, sans-serif;
+  }
   .text-balance {
     text-wrap: balance;
+  }
+  .card-shadow {
+    box-shadow: 0 2px 8px rgba(26, 26, 46, 0.06), 0 1px 3px rgba(26, 26, 46, 0.04);
+  }
+  .card-shadow-hover {
+    box-shadow: 0 8px 24px rgba(26, 26, 46, 0.12), 0 2px 8px rgba(26, 26, 46, 0.06);
   }
 }

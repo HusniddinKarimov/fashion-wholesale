@@ -1,36 +1,178 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FashionWholesale Corp — B2B Portal
 
-## Getting Started
+A production-ready full-stack wholesale clothing portal built with Next.js 14, Prisma, and NextAuth.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Architecture
+
+```
+Browser
+   │
+   ▼
+┌─────────────────────────────┐
+│      Nginx (Load Balancer)  │  ← Rate limiting, gzip, SSL termination
+│   nginx.conf (10 req/s/IP)  │
+└──────┬──────────────────────┘
+       │  (round-robin / least-conn)
+   ┌───┴───────────────────────┐
+   │  App Server 1 :3000       │
+   │  App Server 2 :3000       │  ← Next.js 14 (App Router) + Node.js
+   │  App Server 3 :3000       │
+   └───────────────┬───────────┘
+                   │  (Prisma ORM)
+         ┌─────────▼──────────┐
+         │     PostgreSQL      │  ← Persistent volume, dev uses SQLite
+         │   (docker volume)   │
+         └────────────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local Development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Prerequisites
+- Node.js 20+
+- npm
 
-## Learn More
+### Setup
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 1. Clone & install
+git clone <repo-url>
+cd fashion-wholesale
+npm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your values
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 3. Set up the database
+npx prisma migrate dev --name init
 
-## Deploy on Vercel
+# 4. Seed demo data
+npm run db:seed
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 5. Start dev server
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open http://localhost:3000
+
+---
+
+## Demo Accounts
+
+| Role  | Email                          | Password   |
+|-------|-------------------------------|------------|
+| Admin | admin@fashionwholesale.com    | demo1234   |
+| Buyer | buyer@fashionwholesale.com    | demo1234   |
+
+---
+
+## Environment Variables
+
+| Variable          | Description                          | Required |
+|-------------------|--------------------------------------|----------|
+| DATABASE_URL      | Prisma database connection string    | Yes      |
+| NEXTAUTH_SECRET   | Random secret for JWT signing        | Yes      |
+| NEXTAUTH_URL      | Public app URL (incl. protocol)      | Yes      |
+
+Generate a secret: `openssl rand -base64 32`
+
+---
+
+## Database Seeding
+
+The seed script creates:
+- 2 demo accounts (admin + buyer)
+- 3 buyer accounts with realistic company data
+- 40+ clothing products across 4 categories
+- 28 orders spread over the last 60 days
+
+```bash
+# Seed only
+npm run db:seed
+
+# Full reset + seed
+npm run db:reset
+```
+
+---
+
+## Docker
+
+### Build & run with Docker Compose (includes PostgreSQL):
+
+```bash
+# Copy and configure env
+cp .env.example .env
+
+# Build and start
+docker compose -f docker/docker-compose.yml up --build -d
+
+# Run migrations
+docker exec fashionwholesale_app npx prisma migrate deploy
+```
+
+### Build image manually:
+
+```bash
+docker build -f docker/Dockerfile -t fashionwholesale:latest .
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e NEXTAUTH_SECRET="your-secret" \
+  -e NEXTAUTH_URL="http://localhost:3000" \
+  fashionwholesale:latest
+```
+
+---
+
+## CI/CD
+
+Push to `main` triggers the GitHub Actions pipeline at `.github/workflows/deploy.yml`:
+
+1. **Lint & type-check** — ESLint + TypeScript
+2. **Next.js build** — confirms the app compiles
+3. **Docker build & push** — tagged with Git SHA and `latest`
+4. **SSH deploy** — pulls image, migrates DB, restarts container
+
+### Required GitHub Secrets
+
+| Secret            | Value                             |
+|-------------------|-----------------------------------|
+| DOCKER_USERNAME   | Docker Hub username               |
+| DOCKER_PASSWORD   | Docker Hub access token           |
+| SERVER_HOST       | Production server IP / hostname   |
+| SERVER_USER       | SSH username (e.g. ubuntu)        |
+| SERVER_SSH_KEY    | Private SSH key (PEM)             |
+| NEXTAUTH_SECRET   | Production NextAuth secret        |
+| DATABASE_URL      | Production PostgreSQL URL         |
+
+---
+
+## API Reference
+
+| Endpoint                  | Methods              | Description                    |
+|---------------------------|----------------------|--------------------------------|
+| /api/health               | GET                  | Health check for load balancer |
+| /api/products             | GET, POST, PUT, DELETE | Product CRUD                 |
+| /api/orders               | GET, POST            | List / create orders           |
+| /api/orders/[id]          | GET, PATCH           | Get single / update status     |
+| /api/customers            | GET                  | List buyers (admin)            |
+| /api/customers/[id]       | GET                  | Buyer profile + order history  |
+| /api/dashboard/stats      | GET                  | KPIs and chart data            |
+| /api/inventory/import     | POST                 | CSV bulk import                |
+
+---
+
+## Tech Stack
+
+- **Next.js 14** (App Router, TypeScript)
+- **Tailwind CSS** with custom design tokens
+- **Prisma ORM** + SQLite (dev) / PostgreSQL (prod)
+- **NextAuth.js** — JWT sessions, role-based access
+- **Recharts** — line, bar, and donut charts
+- **Framer Motion** — page and card animations
+- **Zod** — schema validation on forms and APIs
+- **Lucide React** — icon library
