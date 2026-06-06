@@ -87,11 +87,12 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      # Build with dummy vars — real secrets come from SSM at runtime
+      # Build with dummy vars — real secrets come from SSM at runtime.
+      # The build does not connect to the DB; the URL just needs to parse.
       - name: Build Next.js
         run: npm run build
         env:
-          DATABASE_URL: "file:./dev.db"
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
           NEXTAUTH_SECRET: "ci-placeholder-not-used-in-prod"
           NEXTAUTH_URL: "http://localhost:3000"
 

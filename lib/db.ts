@@ -1,11 +1,17 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
-  const url = process.env.DATABASE_URL || "file:./dev.db";
-  const adapter = new PrismaLibSql({ url });
+  const connectionString = process.env.DATABASE_URL;
+  // RDS PostgreSQL 15+ defaults to rds.force_ssl=1, so TLS is required.
+  // Local dev (localhost) connects without SSL.
+  const isLocal = !connectionString || /localhost|127\.0\.0\.1/.test(connectionString);
+  const adapter = new PrismaPg({
+    connectionString,
+    ssl: isLocal ? false : { rejectUnauthorized: false },
+  });
   return new PrismaClient({ adapter });
 }
 
