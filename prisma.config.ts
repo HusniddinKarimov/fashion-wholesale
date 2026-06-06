@@ -8,7 +8,9 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
     // Prisma 7 reads the seed command from here (not package.json).
-    seed: `ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed.ts`,
+    // Module override lives in tsconfig.json's "ts-node" block — passing
+    // --compiler-options here breaks because Prisma spawns without a shell.
+    seed: "ts-node prisma/seed.ts",
   },
   datasource: {
     url: process.env["DATABASE_URL"],
