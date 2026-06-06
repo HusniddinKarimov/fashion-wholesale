@@ -32,9 +32,9 @@ Parameters:
 
   InstanceType:
     Type: String
-    Default: t3.small
+    Default: t3.micro
     AllowedValues: [t3.micro, t3.small, t3.medium, t3.large]
-    Description: EC2 instance type for app servers
+    Description: EC2 instance type for app servers (t3.micro is Free Tier eligible)
 
   AsgMinSize:
     Type: Number
@@ -56,6 +56,15 @@ Parameters:
     Default: db.t3.micro
     AllowedValues: [db.t3.micro, db.t3.small, db.t3.medium]
 
+  DBBackupRetentionDays:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 35
+    Description: >
+      Automated backup retention in days. Free Tier accounts must use 0.
+      Bump to 7+ once the account plan is upgraded.
+
   DBName:
     Type: String
     Default: fashionwholesale
@@ -71,11 +80,6 @@ Parameters:
     MinLength: 12
     Description: RDS master password (min 12 chars)
 
-  NextAuthSecret:
-    Type: String
-    NoEcho: true
-    Description: NEXTAUTH_SECRET value
-
   AppImageUri:
     Type: String
     Default: "nginx:alpine"
@@ -85,6 +89,15 @@ Parameters:
     Type: String
     Default: ""
     Description: EC2 Key Pair for SSH access (optional)
+
+  GitHubOrg:
+    Type: String
+    Description: GitHub username or org that owns the repo (for OIDC trust scoping)
+
+  GitHubRepo:
+    Type: String
+    Default: fashion-wholesale
+    Description: GitHub repository name (for OIDC trust scoping)
 
 # ─── Conditions ──────────────────────────────────────────────────────────────
 Conditions:
@@ -243,7 +256,7 @@ Resources:
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB — allow HTTP/HTTPS from internet
+      GroupDescription: ALB - allow HTTP/HTTPS from internet
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -261,7 +274,7 @@ Resources:
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: App EC2 — allow traffic from ALB only
+      GroupDescription: App EC2 - allow traffic from ALB only
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -275,7 +288,7 @@ Resources:
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: RDS — allow PostgreSQL from app servers only
+      GroupDescription: RDS - allow PostgreSQL from app servers only
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -366,7 +379,7 @@ Resources:
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringLike:
-                "token.actions.githubusercontent.com:sub": "repo:*:ref:refs/heads/main"
+                "token.actions.githubusercontent.com:sub": !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
               StringEquals:
                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
       Policies:
@@ -403,24 +416,15 @@ Resources:
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${EnvironmentName}/*"
 
   # ════════════════════════════════════════════════════════════════════════════
-  # 5. SSM PARAMETERS (secrets stored securely — not in env files)
+  # 5. SSM PARAMETERS
+  #
+  # NOTE: SecureString parameters cannot be created by CloudFormation
+  # (AWS::SSM::Parameter only supports String/StringList). The secrets
+  # /${EnvironmentName}/NEXTAUTH_SECRET and /${EnvironmentName}/DB_PASSWORD
+  # are created out-of-band via `aws ssm put-parameter --type SecureString`
+  # during deployment (see infrastructure/setup.sh). The EC2 instance role
+  # is granted read access to /${EnvironmentName}/* above.
   # ════════════════════════════════════════════════════════════════════════════
-
-  SSMNextAuthSecret:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/${EnvironmentName}/NEXTAUTH_SECRET"
-      Type: SecureString
-      Value: !Ref NextAuthSecret
-      Description: NextAuth JWT signing secret
-
-  SSMDBPassword:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/${EnvironmentName}/DB_PASSWORD"
-      Type: SecureString
-      Value: !Ref DBPassword
-      Description: RDS master password
 
   # ════════════════════════════════════════════════════════════════════════════
   # 6. RDS POSTGRESQL
@@ -444,22 +448,21 @@ Resources:
       DBInstanceIdentifier: !Sub "${EnvironmentName}-postgres"
       DBInstanceClass: !Ref DBInstanceClass
       Engine: postgres
-      EngineVersion: "15.4"
+      EngineVersion: "15.13"
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBName: !Ref DBName
       AllocatedStorage: "20"
-      StorageType: gp3
+      StorageType: gp2
       StorageEncrypted: true
       MultiAZ: false
       PubliclyAccessible: false
       DBSubnetGroupName: !Ref DBSubnetGroup
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
-      BackupRetentionPeriod: 7
-      PreferredBackupWindow: "03:00-04:00"
+      # Free Tier accounts cap backup retention and disallow Performance Insights.
+      BackupRetentionPeriod: !Ref DBBackupRetentionDays
       PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
-      EnablePerformanceInsights: true
       Tags:
         - Key: Name
           Value: !Sub "${EnvironmentName}-rds"

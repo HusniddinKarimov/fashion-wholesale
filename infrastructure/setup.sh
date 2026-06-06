@@ -20,7 +20,7 @@
 set -euo pipefail
 
 # ── EDIT THESE ───────────────────────────────────────────────────────────────
-GITHUB_ORG="YOUR_GITHUB_USERNAME_OR_ORG"   # e.g. johnsmith
+GITHUB_ORG="HusniddinKarimov"               # GitHub username or org that owns the repo
 GITHUB_REPO="fashion-wholesale"             # GitHub repo name
 AWS_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 STACK_NAME="fashionwholesale-prod"
@@ -72,7 +72,18 @@ fi
 warn "Note: The CloudFormation role trusts repo:${GITHUB_ORG}/${GITHUB_REPO}"
 warn "Make sure GITHUB_ORG and GITHUB_REPO match your actual repository!"
 
-# ── Step 3: Deploy CloudFormation stack ───────────────────────────────────────
+# ── Step 3: Store secrets in SSM (SecureString) ───────────────────────────────
+# NOTE: CloudFormation's AWS::SSM::Parameter cannot create SecureString params,
+# so we create them here via the CLI. EC2 instances read them at boot using the
+# instance-role permissions granted in the template.
+log "Storing secrets in SSM Parameter Store (SecureString)..."
+aws ssm put-parameter --name "/${ENV_NAME}/DB_PASSWORD" \
+  --value "$DB_PASSWORD" --type SecureString --overwrite --region "$AWS_REGION" >/dev/null
+aws ssm put-parameter --name "/${ENV_NAME}/NEXTAUTH_SECRET" \
+  --value "$NEXTAUTH_SECRET" --type SecureString --overwrite --region "$AWS_REGION" >/dev/null
+log "Secrets stored"
+
+# ── Step 4: Deploy CloudFormation stack ───────────────────────────────────────
 log "Deploying CloudFormation stack: ${STACK_NAME}"
 log "This takes ~15 minutes (RDS provisioning)..."
 
@@ -84,7 +95,8 @@ aws cloudformation deploy \
   --parameter-overrides \
     EnvironmentName="$ENV_NAME" \
     DBPassword="$DB_PASSWORD" \
-    NextAuthSecret="$NEXTAUTH_SECRET" \
+    GitHubOrg="$GITHUB_ORG" \
+    GitHubRepo="$GITHUB_REPO" \
     KeyPairName="$KEY_PAIR" \
   --tags \
     Project=FashionWholesale \
@@ -92,7 +104,7 @@ aws cloudformation deploy \
 
 log "CloudFormation stack deployed!"
 
-# ── Step 4: Retrieve outputs ──────────────────────────────────────────────────
+# ── Step 5: Retrieve outputs ──────────────────────────────────────────────────
 log "Fetching stack outputs..."
 
 get_output() {
@@ -109,7 +121,7 @@ RDS_ENDPOINT=$(get_output "RDSEndpoint")
 ASG_NAME=$(get_output "AutoScalingGroupName")
 GH_ROLE_ARN=$(get_output "GitHubActionsRoleArn")
 
-# ── Step 5: Store image tag placeholder in SSM ────────────────────────────────
+# ── Step 6: Store image tag placeholder in SSM ────────────────────────────────
 aws ssm put-parameter \
   --name "/${ENV_NAME}/CURRENT_IMAGE_TAG" \
   --value "latest" \
@@ -117,7 +129,7 @@ aws ssm put-parameter \
   --overwrite \
   --region "$AWS_REGION" || true
 
-# ── Step 6: Print GitHub Secrets ──────────────────────────────────────────────
+# ── Step 7: Print GitHub Secrets ──────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════════"
 echo "  Add these as GitHub Repository Secrets"
