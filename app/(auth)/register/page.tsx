@@ -5,10 +5,12 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff, UserPlus } from "lucide-react";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -20,7 +22,21 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const res = await signIn("credentials", {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, company, email, password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Could not create your account. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    // Account created — sign in automatically and head to the catalogue.
+    const signInRes = await signIn("credentials", {
       email,
       password,
       redirect: false,
@@ -28,33 +44,13 @@ export default function LoginPage() {
 
     setLoading(false);
 
-    if (res?.error) {
-      setError("Invalid email or password.");
+    if (signInRes?.error) {
+      // Account exists but sign-in failed — fall back to the login page.
+      router.push("/login");
       return;
     }
 
-    // Fetch session to determine role
-    const sessionRes = await fetch("/api/auth/session");
-    const session = await sessionRes.json();
-    const role = session?.user?.role;
-
-    const staffRoles = ["SUPERADMIN", "ADMIN", "MANAGER"];
-    if (staffRoles.includes(role)) {
-      router.push("/dashboard");
-    } else {
-      router.push("/catalogue");
-    }
-  };
-
-  const fillDemo = (role: "superadmin" | "admin" | "manager" | "user") => {
-    const emails: Record<string, string> = {
-      superadmin: "superadmin@fashionwholesale.com",
-      admin: "admin@fashionwholesale.com",
-      manager: "manager@fashionwholesale.com",
-      user: "buyer@fashionwholesale.com",
-    };
-    setEmail(emails[role]);
-    setPassword("demo1234");
+    router.push("/catalogue");
   };
 
   return (
@@ -63,7 +59,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-[#1a1a2e] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <img
-            src="https://picsum.photos/seed/hero/800/1000"
+            src="https://images.pexels.com/photos/996329/pexels-photo-996329.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=800&h=1000"
             alt=""
             className="w-full h-full object-cover"
           />
@@ -76,9 +72,9 @@ export default function LoginPage() {
           </div>
           <div>
             <blockquote className="font-display text-3xl font-light text-white leading-relaxed mb-4">
-              "The future of wholesale fashion — delivered with precision."
+              "Join 200+ retailers sourcing smarter, every season."
             </blockquote>
-            <p className="text-white/50 font-sans text-sm">Trusted by 200+ retailers worldwide</p>
+            <p className="text-white/50 font-sans text-sm">Wholesale pricing. Low minimums. Fast fulfilment.</p>
           </div>
         </div>
       </div>
@@ -93,35 +89,39 @@ export default function LoginPage() {
         >
           <div className="mb-8">
             <h1 className="font-display text-4xl font-semibold text-[#1a1a2e] mb-2">
-              Welcome back
+              Create your account
             </h1>
-            <p className="text-[#6b7280] font-sans">Sign in to your wholesale portal</p>
-          </div>
-
-          {/* Demo shortcuts */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            <button type="button" onClick={() => fillDemo("superadmin")}
-              className="text-xs font-sans font-medium border border-[#e5e3df] rounded-md py-2 hover:bg-purple-50 text-purple-700 transition-colors">
-              Super Admin
-            </button>
-            <button type="button" onClick={() => fillDemo("admin")}
-              className="text-xs font-sans font-medium border border-[#e5e3df] rounded-md py-2 hover:bg-blue-50 text-blue-700 transition-colors">
-              Admin
-            </button>
-            <button type="button" onClick={() => fillDemo("manager")}
-              className="text-xs font-sans font-medium border border-[#e5e3df] rounded-md py-2 hover:bg-teal-50 text-teal-700 transition-colors">
-              Manager
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo("user")}
-              className="flex-1 text-xs font-sans font-medium border border-[#e5e3df] rounded-md py-2 hover:bg-gray-50 text-[#6b7280] transition-colors"
-            >
-              User / Buyer
-            </button>
+            <p className="text-[#6b7280] font-sans">Open a wholesale buyer account in seconds</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-[#1a1a2e] font-sans mb-1.5">
+                Full name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="Jane Doe"
+                className="w-full h-11 border border-[#e5e3df] rounded-md px-3 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-[#2d4a7a] focus:border-transparent transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#1a1a2e] font-sans mb-1.5">
+                Company <span className="text-[#9ca3af] font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Your boutique or store"
+                className="w-full h-11 border border-[#e5e3df] rounded-md px-3 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-[#2d4a7a] focus:border-transparent transition-colors"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-[#1a1a2e] font-sans mb-1.5">
                 Email address
@@ -146,7 +146,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="••••••••"
+                  minLength={8}
+                  placeholder="At least 8 characters"
                   className="w-full h-11 border border-[#e5e3df] rounded-md px-3 pr-10 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-[#2d4a7a] focus:border-transparent transition-colors"
                 />
                 <button
@@ -176,35 +177,18 @@ export default function LoginPage() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : (
-                <LogIn size={16} />
+                <UserPlus size={16} />
               )}
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Creating account..." : "Create account"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm font-sans text-[#6b7280]">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium text-[#2d4a7a] hover:underline">
-              Create one
+          <p className="mt-8 text-center text-sm font-sans text-[#6b7280]">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-[#2d4a7a] hover:underline">
+              Sign in
             </Link>
           </p>
-
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-[#e5e3df]">
-            <p className="text-xs font-sans text-[#6b7280] font-semibold mb-2 uppercase tracking-wide">Demo accounts — password: demo1234</p>
-            <div className="space-y-1">
-              {[
-                { role: "Superadmin", email: "superadmin@fashionwholesale.com", color: "text-purple-700" },
-                { role: "Admin",      email: "admin@fashionwholesale.com",      color: "text-blue-700" },
-                { role: "Manager",    email: "manager@fashionwholesale.com",    color: "text-teal-700" },
-                { role: "User",       email: "buyer@fashionwholesale.com",      color: "text-gray-600" },
-              ].map(({ role, email, color }) => (
-                <div key={role} className="flex items-center gap-2">
-                  <span className={`text-[10px] font-semibold font-sans w-20 ${color}`}>{role}</span>
-                  <span className="text-xs font-sans text-[#6b7280]">{email}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>
