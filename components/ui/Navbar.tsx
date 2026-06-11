@@ -16,6 +16,14 @@ const ROLE_LABELS: Record<string, { label: string; color: string }> = {
 export function Navbar() {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Clear the session, then navigate to the home page on the current origin.
+  // Using window.location instead of signOut's callbackUrl avoids depending on
+  // NEXTAUTH_URL matching the host the app is actually served from.
+  const handleSignOut = async () => {
+    await signOut({ redirect: false });
+    window.location.href = "/";
+  };
   const user = session?.user as any;
   const role: string = user?.role ?? "USER";
   const staff = isStaff(role);
@@ -72,7 +80,7 @@ export function Navbar() {
                   </span>
                 </div>
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={handleSignOut}
                   className="p-2 rounded-md text-muted hover:text-red-500 hover:bg-red-50 transition-colors"
                   title="Sign out"
                 >
@@ -110,7 +118,7 @@ export function Navbar() {
             </Link>
           ))}
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={handleSignOut}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium text-red-500 hover:bg-red-50"
           >
             <LogOut size={15} />

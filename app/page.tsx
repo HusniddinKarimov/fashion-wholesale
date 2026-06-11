@@ -44,12 +44,20 @@ export default function LandingPage() {
           <span className="font-display text-xl font-semibold text-[#1a1a2e]">
             FashionWholesale <span className="text-[#c9a84c]">Corp</span>
           </span>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 bg-[#2d4a7a] text-white text-sm font-sans font-medium px-4 py-2 rounded-md hover:bg-[#1e3459] transition-colors"
-          >
-            Sign In <ArrowRight size={14} />
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 text-[#1a1a2e] text-sm font-sans font-medium px-4 py-2 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 bg-[#2d4a7a] text-white text-sm font-sans font-medium px-4 py-2 rounded-md hover:bg-[#1e3459] transition-colors"
+            >
+              Register <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -81,10 +89,10 @@ export default function LandingPage() {
                 Access Portal <ArrowRight size={16} />
               </Link>
               <Link
-                href="/login"
+                href="/register"
                 className="inline-flex items-center justify-center gap-2 border border-[#e5e3df] text-[#1a1a2e] font-sans font-medium px-8 py-3.5 rounded-md hover:bg-gray-50 transition-colors text-base"
               >
-                Request Demo
+                Create Account
               </Link>
             </div>
           </motion.div>
