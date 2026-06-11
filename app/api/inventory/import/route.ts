@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         unitPrice: parseFloat(row.unitprice || row["unit price"] || "0"),
         moq: parseInt(row.moq || "12"),
         stock: parseInt(row.stock || "0"),
-        imageUrl: row.imageurl || row["image url"] || `https://picsum.photos/seed/${row.sku}/400/500`,
+        imageUrl: row.imageurl || row["image url"] || `https://loremflickr.com/400/500/clothing?lock=${row.sku}`,
         description: row.description || "",
       };
 
