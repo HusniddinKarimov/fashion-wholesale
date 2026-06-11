@@ -398,18 +398,30 @@ Resources:
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
                 Resource: "*"
-              # Rolling deploys are driven purely by an instance refresh.
-              # New instances read the image tag from SSM at boot, so the CI
-              # role needs no launch-template / RunInstances permissions.
+              # In-place rolling deploys: CI sends an SSM command to the
+              # running instances to pull the new image and restart the
+              # container, instead of replacing the EC2 instances. This skips
+              # the (slow) instance boot + provision cycle.
+              - Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+              # StartInstanceRefresh kept as a fallback / manual rollout path.
               - Effect: Allow
                 Action:
                   - autoscaling:StartInstanceRefresh
                 Resource: !Sub "arn:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/${EnvironmentName}-asg"
-              # Describe* and CloudFormation read actions don't support
-              # resource-level permissions, so they must target "*".
+              # Describe* / read actions don't support resource-level scoping,
+              # and SSM command-invocation reads target the command, so "*".
               - Effect: Allow
                 Action:
                   - autoscaling:DescribeInstanceRefreshes
+                  - autoscaling:DescribeAutoScalingGroups
+                  - ec2:DescribeInstances
+                  - ssm:GetCommandInvocation
+                  - ssm:ListCommandInvocations
                   - cloudformation:DescribeStacks
                 Resource: "*"
               - Effect: Allow
