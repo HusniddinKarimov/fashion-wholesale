@@ -74,7 +74,7 @@ export default function LandingPage() {
               B2B Wholesale Portal
             </div>
             <h1 className="font-display text-6xl sm:text-7xl lg:text-8xl font-light text-[#1a1a2e] leading-tight tracking-tight mb-6">
-              Premium Fashion,
+              Golden PDP Fashion,
               <br />
               <span className="text-[#c9a84c]">Wholesale Scale</span>
             </h1>
