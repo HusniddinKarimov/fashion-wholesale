@@ -1,6 +1,4 @@
-import type { Config } from "tailwindcss";
-
-const config: Config = {
+const config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,7 +7,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#fafaf9",
+        bg: "#fcfc90",
         ink: "#1a1a2e",
         gold: "#c9a84c",
         "gold-light": "#e8d49a",
