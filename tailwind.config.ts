@@ -8,7 +8,7 @@ const config = {
     extend: {
       colors: {
         bg: "#fcfc90",
-        ink: "#1a1a2e",
+        ink: "#7d7dff",
         gold: "#c9a84c",
         "gold-light": "#e8d49a",
         cta: "#2d4a7a",
