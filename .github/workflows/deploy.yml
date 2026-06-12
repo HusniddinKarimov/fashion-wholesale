@@ -177,12 +177,19 @@ jobs:
         env:
           REGION: ${{ secrets.AWS_REGION }}
         run: |
-          sleep 10
           ALB_DNS=$(aws cloudformation describe-stacks \
             --stack-name fashionwholesale-prod \
             --query "Stacks[0].Outputs[?OutputKey=='LoadBalancerDNS'].OutputValue" \
             --output text --region "$REGION")
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/api/health" || echo "000")
-          echo "ALB health check: $HTTP_CODE"
-          [ "$HTTP_CODE" = "200" ] || { echo "Smoke test failed!"; exit 1; }
-          echo "Smoke test passed ✓"
+          # LoadBalancerDNS already includes the scheme (e.g. http://...-alb...).
+          BASE="${ALB_DNS%/}"
+          echo "Health endpoint: $BASE/api/health"
+          # Retry: targets can take a few seconds to re-register healthy after
+          # the rolling container restart.
+          for i in $(seq 1 12); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/health" || echo "000")
+            echo "  attempt $i: $HTTP_CODE"
+            [ "$HTTP_CODE" = "200" ] && { echo "Smoke test passed ✓"; exit 0; }
+            sleep 5
+          done
+          echo "Smoke test failed!"; exit 1
