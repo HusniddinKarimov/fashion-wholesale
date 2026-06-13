@@ -42,7 +42,7 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#fafaf9]/90 backdrop-blur border-b border-[#e5e3df]">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <span className="font-display text-xl font-semibold text-[#1a1a2e]">
-            FashionWholesale <span className="text-[#c9a84c]">Corp</span>
+            Retake <span className="text-[#c9a84c]">but not today</span>
           </span>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
@@ -74,7 +74,7 @@ export default function LandingPage() {
               B2B Wholesale Portal
             </div>
             <h1 className="font-display text-6xl sm:text-7xl lg:text-8xl font-light text-[#1a1a2e] leading-tight tracking-tight mb-6">
-              Golden PDP Fashion,
+              Retake Fashion,
               <br />
               <span className="text-[#c9a84c]">Wholesale Scale</span>
             </h1>
